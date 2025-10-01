@@ -1,0 +1,9 @@
+{
+  "name": "vercel-smoke-test",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "cloudinary": "^1.41.1",
+    "formidable": "^3.5.1"
+  }
+}
