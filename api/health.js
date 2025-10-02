@@ -1,14 +1,8 @@
-// api/health.js  (CommonJS + CORS)
-module.exports = (req, res) => {
-  // CORS: open for testing; we can lock this down later
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+const { setCORS } = require('./_cors');
 
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
+module.exports = (req, res) => {
+  setCORS(res);
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
   res.status(200).json({
     ok: true,
