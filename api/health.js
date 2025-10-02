@@ -1,8 +1,14 @@
-const { setCORS } = require('./_cors');
-
+// api/health.js  — force-open CORS so Squarespace can call it
 module.exports = (req, res) => {
-  setCORS(req, res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  res.setHeader('Access-Control-Allow-Origin', '*');          // <-- always allow for now
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+  res.setHeader('Access-Control-Max-Age', '86400');           // cache preflight for 24h
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).end(); // no body
+    return;
+  }
 
   res.status(200).json({
     ok: true,
