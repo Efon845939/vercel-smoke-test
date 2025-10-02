@@ -8,11 +8,10 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// harmless on Vercel functions; useful if moved into Next API
 module.exports.config = { api: { bodyParser: false } };
 
 module.exports = async (req, res) => {
-  setCORS(res);
+  setCORS(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ success: false, message: 'Method not allowed' });
 
