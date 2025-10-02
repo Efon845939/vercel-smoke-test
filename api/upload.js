@@ -30,12 +30,13 @@ module.exports = async (req, res) => {
     if (!filepath) {
       return res.status(400).json({ success: false, message: 'No file uploaded (field must be "projectFile")' });
     }
-
+    
+    const title = (fields.title || '').toString().trim();
     const folder = process.env.CLOUDINARY_FOLDER || 'steam4all';
     const result = await cloudinary.uploader.upload(filepath, {
       folder,
       resource_type: 'auto',
-      context: { studentName }
+      context: { studentName, title }
     });
 
     res.status(200).json({
