@@ -1,15 +1,10 @@
-// api/health-open.js  (CommonJS) — ALWAYS sends CORS so we can verify end-to-end
+// api/health-open.js  (CommonJS)
 module.exports = (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');      // allow all for this test
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
   res.setHeader('Access-Control-Max-Age', '86400');
-
-  if (req.method === 'OPTIONS') {
-    res.status(204).end();
-    return;
-  }
-
+  if (req.method === 'OPTIONS') return res.status(204).end();
   res.status(200).json({
     ok: true,
     route: 'health-open',
