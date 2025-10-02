@@ -1,6 +1,4 @@
-// api/projects.js  (CommonJS)
-// Lists Cloudinary assets in your folder (optionally filter by ?studentName=Alice)
-
+const { setCORS } = require('./_cors');
 const cloudinary = require('cloudinary').v2;
 
 cloudinary.config({
@@ -10,15 +8,9 @@ cloudinary.config({
 });
 
 module.exports = async (req, res) => {
-  // CORS (open for testing; we can tighten to your Squarespace origin later)
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
+  setCORS(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'GET') {
-    return res.status(405).json({ success: false, message: 'Method not allowed' });
-  }
+  if (req.method !== 'GET') return res.status(405).json({ success: false, message: 'Method not allowed' });
 
   try {
     const folder = process.env.CLOUDINARY_FOLDER || 'steam4all';
@@ -46,9 +38,9 @@ module.exports = async (req, res) => {
       items = items.filter(i => (i.studentName || '').toLowerCase() === studentName.toLowerCase());
     }
 
-    return res.status(200).json({ success: true, count: items.length, items });
+    res.status(200).json({ success: true, count: items.length, items });
   } catch (err) {
     console.error('projects error:', err);
-    return res.status(500).json({ success: false, message: 'Could not list projects' });
+    res.status(500).json({ success: false, message: 'Could not list projects' });
   }
 };
