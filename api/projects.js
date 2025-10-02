@@ -23,16 +23,19 @@ module.exports = async (req, res) => {
       .execute();
 
     let items = (result.resources || []).map(r => ({
-      public_id: r.public_id,
-      url: r.secure_url,
-      format: r.format,
-      resource_type: r.resource_type,
-      bytes: r.bytes,
-      created_at: r.created_at,
-      studentName: r.context && r.context.custom && r.context.custom.studentName
-        ? r.context.custom.studentName
-        : null
-    }));
+  public_id: r.public_id,
+  url: r.secure_url,
+  format: r.format,
+  resource_type: r.resource_type,
+  bytes: r.bytes,
+  created_at: r.created_at,
+  studentName: r.context && r.context.custom && r.context.custom.studentName
+    ? r.context.custom.studentName
+    : null,
+  title: r.context && r.context.custom && r.context.custom.title
+    ? r.context.custom.title
+    : null
+}));
 
     if (studentName) {
       items = items.filter(i => (i.studentName || '').toLowerCase() === studentName.toLowerCase());
