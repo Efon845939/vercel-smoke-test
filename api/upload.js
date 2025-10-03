@@ -1,6 +1,5 @@
-// Accepts multipart/form-data: fields => studentName, title, makers (comma-separated), file => projectFile
-// Saves context so title + makers persist immediately.
-// Returns: { success, url, public_id, resource_type, studentName, title, makers[] }
+// Accepts multipart/form-data: studentName, title, makers (comma-separated), projectFile
+// Persists metadata in Cloudinary context immediately.
 
 const { setCORS } = require("./_cors");
 const cloudinary = require("cloudinary").v2;
@@ -25,32 +24,34 @@ module.exports = async (req, res) => {
       form.parse(req, (err, flds, fls) => (err ? reject(err) : resolve({ fields: flds, files: fls })));
     });
 
-    const studentName = (fields.studentName || "Unknown").toString().trim();
-    const title = (fields.title || "").toString().trim();
-    const makers = fields.makers
-      ? (Array.isArray(fields.makers) ? fields.makers.map(String) : String(fields.makers).split(","))
-      : [];
-    const makersClean = makers.map(m => m.trim()).filter(Boolean);
+    const studentName = String(fields.studentName || "Unknown").trim();
+    const title = String(fields.title || "").trim();
+    const makersRaw = fields.makers
+      ? (Array.isArray(fields.makers) ? fields.makers.map(String).join(",") : String(fields.makers))
+      : "";
+    const makers = makersRaw.split(",").map(s => s.trim()).filter(Boolean); // ["a","b"]
 
     const fileObj = files.projectFile || files.file || files.upload;
     const filepath =
       (fileObj && fileObj.filepath) ||
       (Array.isArray(fileObj) && fileObj[0] && fileObj[0].filepath);
 
-    if (!filepath) return res.status(400).json({ success: false, message: 'No file uploaded (field must be "projectFile")' });
+    if (!filepath) return res.status(400).json({ success: false, message: 'No file uploaded (field "projectFile")' });
 
     const folder = process.env.CLOUDINARY_FOLDER || "steam4all";
 
-    // Store all metadata in context: studentName, title, makers
-    const parts = [`studentName=${studentName}`];
-    if (title) parts.push(`title=${title}`);
-    if (makersClean.length) parts.push(`makers=${makersClean.join("|")}`); // store co-creators joined by |
-    const context = parts.join("|");
+    // Save context as a STRING (most compatible with Cloudinary):
+    // studentName=<name>|title=<title>|makers=<a|b|c>
+    const ctx = [
+      `studentName=${studentName}`,
+      title ? `title=${title}` : null,
+      makers.length ? `makers=${makers.join("|")}` : null
+    ].filter(Boolean).join("|");
 
     const result = await cloudinary.uploader.upload(filepath, {
       folder,
       resource_type: "auto",
-      context // NOTE: string format is the most compatible
+      context: ctx
     });
 
     return res.status(200).json({
@@ -60,7 +61,7 @@ module.exports = async (req, res) => {
       resource_type: result.resource_type,
       studentName,
       title: title || null,
-      makers: makersClean
+      makers
     });
   } catch (err) {
     console.error("upload error:", err);
