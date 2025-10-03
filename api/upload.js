@@ -25,7 +25,8 @@ module.exports = async (req, res) => {
       form.parse(req, (err, flds, fls) => (err ? reject(err) : resolve({ fields: flds, files: fls })));
     });
 
-    const studentName = String(fields.studentName || "Unknown").trim();
+    const auth = getAuth(req);
+    const studentName = auth?.name ? String(auth.name) : String(fields.studentName || "Unknown");
     const title = String(fields.title || "").trim();
     const makersRaw = fields.makers
       ? (Array.isArray(fields.makers) ? fields.makers.map(String).join(",") : String(fields.makers))
