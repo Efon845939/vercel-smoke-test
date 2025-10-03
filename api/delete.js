@@ -1,5 +1,4 @@
-// Body: { public_id: string, resource_type: "image"|"video" }
-// Deletes an asset.
+// Body: { public_id, resource_type: "image"|"video" }
 
 const { setCORS } = require("./_cors");
 const cloudinary = require("cloudinary").v2;
@@ -23,7 +22,7 @@ module.exports = async (req, res) => {
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
 
     const public_id = String(body.public_id || "").trim();
-    const resource_type = (body.resource_type === "video") ? "video" : "image";
+    const resource_type = body.resource_type === "video" ? "video" : "image";
     if (!public_id) return res.status(400).json({ success: false, message: "public_id is required" });
 
     const result = await cloudinary.uploader.destroy(public_id, { resource_type });
