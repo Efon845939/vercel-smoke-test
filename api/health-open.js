@@ -1,4 +1,4 @@
-// Always returns CORS so you can test from your website
+// Always-on health check with permissive CORS (for quick tests)
 module.exports = (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
