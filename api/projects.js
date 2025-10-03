@@ -17,24 +17,24 @@ module.exports = async (req, res) => {
 
   try {
     const folder = process.env.CLOUDINARY_FOLDER || "steam4all";
-    const studentName = (req.query && req.query.studentName ? String(req.query.studentName) : "").trim();
+    const studentName = (req.query && req.query.studentName ? String(req.query.studentName) : "").trim().toLowerCase();
 
-    let resources = [];
-    try {
-      const search = await cloudinary.search
-        .expression(`folder:${folder}`)
-        .sort_by("created_at", "desc")
-        .max_results(100)
-        .execute();
-      resources = search.resources || [];
-    } catch (e) {
-      console.warn("Search API failed, falling back to Admin list:", e?.message || e);
-      // Fallback: list images + videos under folder
-      const imgs = await cloudinary.api.resources({ type: "upload", prefix: `${folder}/`, max_results: 100, resource_type: "image" });
-      const vids = await cloudinary.api.resources({ type: "upload", prefix: `${folder}/`, max_results: 100, resource_type: "video" });
-      resources = (imgs.resources || []).concat(vids.resources || []);
-      resources.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    }
+    // Use Admin API for fresher results (both images & videos)
+    const imgs = await cloudinary.api.resources({
+      type: "upload",
+      prefix: `${folder}/`,
+      max_results: 100,
+      resource_type: "image"
+    });
+    const vids = await cloudinary.api.resources({
+      type: "upload",
+      prefix: `${folder}/`,
+      max_results: 100,
+      resource_type: "video"
+    });
+
+    let resources = (imgs.resources || []).concat(vids.resources || []);
+    resources.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     let items = resources.map(r => ({
       public_id: r.public_id,
@@ -52,8 +52,7 @@ module.exports = async (req, res) => {
     }));
 
     if (studentName) {
-      const n = studentName.toLowerCase();
-      items = items.filter(i => (i.studentName || "").toLowerCase() === n);
+      items = items.filter(i => (i.studentName || "").toLowerCase() === studentName);
     }
 
     return res.status(200).json({ success: true, count: items.length, items });
