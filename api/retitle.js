@@ -1,5 +1,5 @@
-// Body: { public_id: string, resource_type: "image"|"video", title: string }
-// Updates ONLY the title context and returns the fresh title.
+// Body: { public_id, resource_type: "image"|"video", title }
+// Updates ONLY the title and returns the fresh title.
 
 const { setCORS } = require("./_cors");
 const cloudinary = require("cloudinary").v2;
@@ -21,7 +21,7 @@ module.exports = async (req, res) => {
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
 
     const public_id = String(body.public_id || "").trim();
-    const resource_type = (body.resource_type === "video") ? "video" : "image";
+    const resource_type = body.resource_type === "video" ? "video" : "image";
     const title = String(body.title || "").trim();
     if (!public_id || !title) return res.status(400).json({ success: false, message: "public_id and title are required" });
 
