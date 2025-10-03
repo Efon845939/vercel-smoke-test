@@ -1,6 +1,6 @@
-// api/upload.js  (CommonJS)
-// Accepts multipart/form-data: fields => studentName, title (optional), file => projectFile
-// Returns: { success, url, public_id, resource_type, studentName, title }
+// api/upload.js
+// Accepts multipart/form-data: fields => studentName (uploader), title, makers[] (extra names), projectFile
+// Returns: { success, url, public_id, resource_type, studentName, title, makers }
 
 const { setCORS } = require("./_cors");
 const cloudinary = require("cloudinary").v2;
@@ -12,7 +12,6 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Harmless in Vercel functions; useful if ever moved to Next.js API routes
 module.exports.config = { api: { bodyParser: false } };
 
 module.exports = async (req, res) => {
@@ -28,6 +27,11 @@ module.exports = async (req, res) => {
 
     const studentName = (fields.studentName || "Unknown").toString().trim();
     const title = (fields.title || "").toString().trim();
+    // makers can be passed as comma-separated string or multiple fields
+    const makers = fields.makers
+      ? Array.isArray(fields.makers) ? fields.makers.map(String) : String(fields.makers).split(",")
+      : [];
+    const makersClean = makers.map(m => m.trim()).filter(Boolean);
 
     const fileObj = files.projectFile || files.file || files.upload;
     const filepath =
@@ -40,15 +44,16 @@ module.exports = async (req, res) => {
 
     const folder = process.env.CLOUDINARY_FOLDER || "steam4all";
 
-    // ⚠️ Use string context (most compatible across SDK versions)
-    // No URL-encoding; Cloudinary expects plain key=value pairs
-    const contextString = title
-      ? `studentName=${studentName}|title=${title}`
-      : `studentName=${studentName}`;
+    // Store all metadata in context: studentName, title, makers
+    const contextParts = [`studentName=${studentName}`];
+    if (title) contextParts.push(`title=${title}`);
+    if (makersClean.length) contextParts.push(`makers=${makersClean.join("|")}`); // "|" separator inside one field
+
+    const contextString = contextParts.join("|");
 
     const result = await cloudinary.uploader.upload(filepath, {
       folder,
-      resource_type: "auto",              // supports images/videos
+      resource_type: "auto",
       context: contextString
     });
 
@@ -58,7 +63,8 @@ module.exports = async (req, res) => {
       public_id: result.public_id,
       resource_type: result.resource_type,
       studentName,
-      title: title || null
+      title: title || null,
+      makers: makersClean
     });
   } catch (err) {
     console.error("upload error:", err);
