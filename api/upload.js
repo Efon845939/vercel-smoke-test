@@ -1,6 +1,6 @@
-// api/upload.js
-// Accepts multipart/form-data: fields => studentName (uploader), title, makers[] (extra names), projectFile
-// Returns: { success, url, public_id, resource_type, studentName, title, makers }
+// Accepts multipart/form-data: fields => studentName, title, makers (comma-separated), file => projectFile
+// Saves context so title + makers persist immediately.
+// Returns: { success, url, public_id, resource_type, studentName, title, makers[] }
 
 const { setCORS } = require("./_cors");
 const cloudinary = require("cloudinary").v2;
@@ -27,9 +27,8 @@ module.exports = async (req, res) => {
 
     const studentName = (fields.studentName || "Unknown").toString().trim();
     const title = (fields.title || "").toString().trim();
-    // makers can be passed as comma-separated string or multiple fields
     const makers = fields.makers
-      ? Array.isArray(fields.makers) ? fields.makers.map(String) : String(fields.makers).split(",")
+      ? (Array.isArray(fields.makers) ? fields.makers.map(String) : String(fields.makers).split(","))
       : [];
     const makersClean = makers.map(m => m.trim()).filter(Boolean);
 
@@ -38,23 +37,20 @@ module.exports = async (req, res) => {
       (fileObj && fileObj.filepath) ||
       (Array.isArray(fileObj) && fileObj[0] && fileObj[0].filepath);
 
-    if (!filepath) {
-      return res.status(400).json({ success: false, message: 'No file uploaded (field must be "projectFile")' });
-    }
+    if (!filepath) return res.status(400).json({ success: false, message: 'No file uploaded (field must be "projectFile")' });
 
     const folder = process.env.CLOUDINARY_FOLDER || "steam4all";
 
     // Store all metadata in context: studentName, title, makers
-    const contextParts = [`studentName=${studentName}`];
-    if (title) contextParts.push(`title=${title}`);
-    if (makersClean.length) contextParts.push(`makers=${makersClean.join("|")}`); // "|" separator inside one field
-
-    const contextString = contextParts.join("|");
+    const parts = [`studentName=${studentName}`];
+    if (title) parts.push(`title=${title}`);
+    if (makersClean.length) parts.push(`makers=${makersClean.join("|")}`); // store co-creators joined by |
+    const context = parts.join("|");
 
     const result = await cloudinary.uploader.upload(filepath, {
       folder,
       resource_type: "auto",
-      context: contextString
+      context // NOTE: string format is the most compatible
     });
 
     return res.status(200).json({
