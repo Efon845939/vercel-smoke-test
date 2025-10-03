@@ -1,5 +1,5 @@
-// api/projects.js  (CommonJS)
-// Lists uploaded assets, optionally filtered by ?studentName=...
+// Lists uploaded assets, optionally filtered by ?studentName=... (case-insensitive).
+// Uses Admin API for fresh results and returns title + makers.
 
 const { setCORS } = require("./_cors");
 const cloudinary = require("cloudinary").v2;
@@ -17,9 +17,8 @@ module.exports = async (req, res) => {
 
   try {
     const folder = process.env.CLOUDINARY_FOLDER || "steam4all";
-    const studentName = (req.query && req.query.studentName ? String(req.query.studentName) : "").trim().toLowerCase();
+    const qName = (req.query && req.query.studentName ? String(req.query.studentName) : "").trim().toLowerCase();
 
-    // Use Admin API for fresher results (both images & videos)
     const imgs = await cloudinary.api.resources({
       type: "upload",
       prefix: `${folder}/`,
@@ -36,23 +35,27 @@ module.exports = async (req, res) => {
     let resources = (imgs.resources || []).concat(vids.resources || []);
     resources.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-    let items = resources.map(r => ({
-      public_id: r.public_id,
-      url: r.secure_url,
-      format: r.format,
-      resource_type: r.resource_type,
-      bytes: r.bytes,
-      created_at: r.created_at,
-      studentName: r.context && r.context.custom && r.context.custom.studentName
-        ? r.context.custom.studentName
-        : null,
-      title: r.context && r.context.custom && r.context.custom.title
-        ? r.context.custom.title
-        : null
-    }));
+    let items = resources.map(r => {
+      const ctx = r.context && r.context.custom ? r.context.custom : {};
+      const makers = ctx.makers ? String(ctx.makers).split("|").filter(Boolean) : [];
+      return {
+        public_id: r.public_id,
+        url: r.secure_url,
+        format: r.format,
+        resource_type: r.resource_type,
+        bytes: r.bytes,
+        created_at: r.created_at,
+        studentName: ctx.studentName || null,
+        title: ctx.title || null,
+        makers
+      };
+    });
 
-    if (studentName) {
-      items = items.filter(i => (i.studentName || "").toLowerCase() === studentName);
+    if (qName) {
+      items = items.filter(i => {
+        const me = qName;
+        return (i.studentName || "").toLowerCase() === me || (i.makers || []).map(m => m.toLowerCase()).includes(me);
+      });
     }
 
     return res.status(200).json({ success: true, count: items.length, items });
