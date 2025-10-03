@@ -1,5 +1,5 @@
-// Lists uploaded assets, optionally filtered by ?studentName=... (case-insensitive).
-// Uses Admin API for fresh results and returns title + makers.
+// Fresh list using Admin API. Returns title + makers.
+// Optional filter: ?studentName=<name> (case-insensitive) — matches uploader OR co-creator.
 
 const { setCORS } = require("./_cors");
 const cloudinary = require("cloudinary").v2;
@@ -20,24 +20,18 @@ module.exports = async (req, res) => {
     const qName = (req.query && req.query.studentName ? String(req.query.studentName) : "").trim().toLowerCase();
 
     const imgs = await cloudinary.api.resources({
-      type: "upload",
-      prefix: `${folder}/`,
-      max_results: 100,
-      resource_type: "image"
+      type: "upload", prefix: `${folder}/`, max_results: 100, resource_type: "image"
     });
     const vids = await cloudinary.api.resources({
-      type: "upload",
-      prefix: `${folder}/`,
-      max_results: 100,
-      resource_type: "video"
+      type: "upload", prefix: `${folder}/`, max_results: 100, resource_type: "video"
     });
 
     let resources = (imgs.resources || []).concat(vids.resources || []);
     resources.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     let items = resources.map(r => {
-      const ctx = r.context && r.context.custom ? r.context.custom : {};
-      const makers = ctx.makers ? String(ctx.makers).split("|").filter(Boolean) : [];
+      const c = r.context && r.context.custom ? r.context.custom : {};
+      const makers = c.makers ? String(c.makers).split("|").filter(Boolean) : [];
       return {
         public_id: r.public_id,
         url: r.secure_url,
@@ -45,8 +39,8 @@ module.exports = async (req, res) => {
         resource_type: r.resource_type,
         bytes: r.bytes,
         created_at: r.created_at,
-        studentName: ctx.studentName || null,
-        title: ctx.title || null,
+        studentName: c.studentName || null,
+        title: c.title || null,
         makers
       };
     });
