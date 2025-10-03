@@ -28,14 +28,21 @@ module.exports = async (req, res) => {
       return res.status(400).json({ success: false, message: "public_id and title are required" });
     }
 
-    // Use Admin API update for context: reliably overwrites/creates keys
-    const update = await cloudinary.api.update(public_id, {
+    // Update ONLY the title key (preserves other context keys)
+    await cloudinary.api.update(public_id, {
       resource_type,
       context: `title=${title}`
     });
 
-    const wroteTitle = update && update.context && update.context.custom && update.context.custom.title === title;
-    return res.status(200).json({ success: !!wroteTitle, public_id, title });
+    // Fetch fresh resource so we return the latest context immediately
+    const fresh = await cloudinary.api.resource(public_id, { resource_type });
+    const newTitle = fresh?.context?.custom?.title || null;
+
+    return res.status(200).json({
+      success: !!newTitle && newTitle === title,
+      public_id,
+      title: newTitle
+    });
   } catch (err) {
     console.error("retitle error:", err);
     return res.status(500).json({ success: false, message: "Retitle failed" });
