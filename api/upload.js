@@ -2,6 +2,7 @@
 // Persists metadata in Cloudinary context immediately.
 
 const { setCORS } = require("./_cors");
+const { getAuth } = require("./_jwt");
 const cloudinary = require("cloudinary").v2;
 const formidable = require("formidable");
 
