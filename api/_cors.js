@@ -1,5 +1,4 @@
-// CommonJS CORS helper that supports multiple origins (comma-separated)
-const RAW = process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || "*";
+const RAW = process.env.ALLOWED_ORIGINS || "*";
 const ALLOWED = RAW.split(",").map(s => s.trim()).filter(Boolean);
 
 function pickOrigin(req) {
@@ -15,7 +14,7 @@ function setCORS(req, res) {
     res.setHeader("Vary", "Origin");
   }
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Requested-With");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Requested-With, Authorization");
   res.setHeader("Access-Control-Max-Age", "86400");
 }
 
