@@ -26,6 +26,6 @@ module.exports = async (req, res) => {
     res.status(200).json({ success:true, token, role: row.role, name: row.name });
   } catch (err) {
     console.error("signup error:", err);
-    res.status(500).json({ success:false, message:"Signup failed" });
+    res.status(500).json({ success:false, message:"Signup failed", debug: String(err.message || err) });
   }
 };
