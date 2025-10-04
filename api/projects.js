@@ -1,5 +1,5 @@
-// Lists uploaded assets, optionally filtered by ?studentName=... (case-insensitive).
-// Uses Admin API with context:true so title/studentName/makers persist on refresh.
+// Fresh list using Admin API with context:true (title/studentName/makers persist)
+// Optional filter: ?studentName=<name> (matches uploader or any co-creator)
 
 const { setCORS } = require("./_cors");
 const cloudinary = require("cloudinary").v2;
@@ -18,23 +18,13 @@ module.exports = async (req, res) => {
   try {
     const folder = process.env.CLOUDINARY_FOLDER || "steam4all";
     const qName = (req.query && req.query.studentName ? String(req.query.studentName) : "")
-      .trim()
-      .toLowerCase();
+      .trim().toLowerCase();
 
-    // IMPORTANT: context:true so Cloudinary returns context fields
     const imgs = await cloudinary.api.resources({
-      type: "upload",
-      prefix: `${folder}/`,
-      max_results: 100,
-      resource_type: "image",
-      context: true,
+      type: "upload", prefix: `${folder}/`, max_results: 100, resource_type: "image", context: true
     });
     const vids = await cloudinary.api.resources({
-      type: "upload",
-      prefix: `${folder}/`,
-      max_results: 100,
-      resource_type: "video",
-      context: true,
+      type: "upload", prefix: `${folder}/`, max_results: 100, resource_type: "video", context: true
     });
 
     let resources = (imgs.resources || []).concat(vids.resources || []);
@@ -52,7 +42,7 @@ module.exports = async (req, res) => {
         created_at: r.created_at,
         studentName: c.studentName || null,
         title: c.title || null,
-        makers,
+        makers
       };
     });
 
