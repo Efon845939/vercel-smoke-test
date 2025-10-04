@@ -5,7 +5,7 @@ const RAW = process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || "*";
 const ALLOWED = RAW.split(",").map(s => s.trim()).filter(Boolean);
 
 // 🔓 while you hurry, keep this true
-const FORCE_WILDCARD = true;
+const FORCE_WILDCARD = false;
 
 function pickOrigin(req) {
   if (FORCE_WILDCARD) return "*";
