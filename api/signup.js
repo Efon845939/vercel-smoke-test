@@ -1,7 +1,3 @@
-// api/signup.js
-// POST { name, role, pin } -> { success, token, role, name }
-// Creates user if not exists; role: "student" | "teacher"
-
 const { setCORS } = require("./_cors");
 const { signToken } = require("./_jwt");
 const { createUser, getUserByNameRole } = require("./_db");
@@ -19,7 +15,6 @@ module.exports = async (req, res) => {
     const name = String(body.name || "").trim();
     const role = (body.role === "teacher") ? "teacher" : "student";
     const pin  = String(body.pin  || "").trim();
-
     if (!name || !pin) return res.status(400).json({ success:false, message:"name and pin required" });
 
     const exists = await getUserByNameRole(name, role);
