@@ -1,6 +1,3 @@
-// api/login.js
-// POST { name, role, pin } -> { success, token, role, name }
-
 const { setCORS } = require("./_cors");
 const { signToken } = require("./_jwt");
 const { verifyUser } = require("./_db");
