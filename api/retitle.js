@@ -1,6 +1,3 @@
-// Body: { public_id, resource_type: "image"|"video", title }
-// Updates ONLY the title and returns the fresh title.
-
 const { setCORS } = require("./_cors");
 const cloudinary = require("cloudinary").v2;
 
@@ -27,7 +24,7 @@ module.exports = async (req, res) => {
 
     await cloudinary.api.update(public_id, { resource_type, context: `title=${title}` });
 
-    const fresh = await cloudinary.api.resource(public_id, { resource_type });
+    const fresh = await cloudinary.api.resource(public_id, { resource_type, context: true });
     const newTitle = fresh?.context?.custom?.title || null;
 
     return res.status(200).json({ success: !!newTitle, public_id, title: newTitle });
