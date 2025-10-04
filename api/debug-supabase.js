@@ -7,15 +7,15 @@ module.exports = async (req, res) => {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const url = process.env.SUPABASE_URL || "";
-  const key = process.env.SUPABASE_SERVICE_ROLE ? "present" : "missing";
+  const hasService = !!process.env.SUPABASE_SERVICE_ROLE;
 
   try {
-    if (!url || key !== "present") {
+    if (!url || !hasService) {
       return res.status(200).json({
         ok: false,
         reason: "missing-env",
         supabase_url_present: !!url,
-        service_role_present: key === "present"
+        service_role_present: hasService
       });
     }
 
@@ -23,7 +23,7 @@ module.exports = async (req, res) => {
       auth: { persistSession: false, autoRefreshToken: false }
     });
 
-    // Try a lightweight select on users (table may be empty)
+    // This table may be empty; we just test access.
     const { data, error } = await sb.from("users").select("id").limit(1);
     if (error) {
       return res.status(200).json({ ok: false, reason: "query-error", error: String(error) });
