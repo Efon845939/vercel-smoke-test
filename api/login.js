@@ -2,6 +2,8 @@ const { setCORS } = require("./_cors");
 const { signToken } = require("./_jwt");
 const { verifyUser } = require("./_db");
 
+const NAME_REGEX = /^([A-Za-zÇĞİÖŞÜçğıöşü]+)(\s+[A-Za-zÇĞİÖŞÜçğıöşü]+)+$/;
+
 module.exports = async (req, res) => {
   setCORS(req, res);
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -12,18 +14,27 @@ module.exports = async (req, res) => {
     for await (const c of req) chunks.push(c);
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
 
-    const name = String(body.name || "").trim();
-    const role = (body.role === "teacher") ? "teacher" : "student";
-    const pin  = String(body.pin  || "").trim();
-    if (!name || !pin) return res.status(400).json({ success:false, message:"name and pin required" });
+    const nameRaw = String(body.name || "");
+    const role    = (body.role === "teacher") ? "teacher" : "student";
+    const pin     = String(body.pin  || "").trim();
 
-    const row = await verifyUser(name, role, pin);
+    if (!NAME_REGEX.test(nameRaw.trim())) {
+      return res.status(400).json({
+        success:false,
+        message:"Please enter your full name (letters only, at least two words)."
+      });
+    }
+    if (!pin) {
+      return res.status(400).json({ success:false, message:"PIN is required." });
+    }
+
+    const row = await verifyUser(nameRaw, role);
     if (!row) return res.status(401).json({ success:false, message:"Invalid name or PIN" });
 
-    const token = signToken({ name: row.name, role: row.role });
+    const token = signToken({ name: row.name, role: row.role }); // exact case as stored
     res.status(200).json({ success:true, token, role: row.role, name: row.name });
   } catch (err) {
     console.error("login error:", err);
-    res.status(500).json({ success:false, message:"Login failed", debug: String(err.message || err) });
+    res.status(500).json({ success:false, message:"Login failed" });
   }
 };
