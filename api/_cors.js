@@ -1,4 +1,5 @@
-const RAW = process.env.ALLOWED_ORIGINS || "*";
+// CommonJS CORS helper that supports multiple origins (comma-separated)
+const RAW = process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || "*";
 const ALLOWED = RAW.split(",").map(s => s.trim()).filter(Boolean);
 
 function pickOrigin(req) {
