@@ -1,5 +1,3 @@
-// Body: { public_id, resource_type: "image"|"video" }
-
 const { setCORS } = require("./_cors");
 const cloudinary = require("cloudinary").v2;
 
