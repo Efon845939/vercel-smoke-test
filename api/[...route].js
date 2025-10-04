@@ -1,8 +1,9 @@
-// api/[...route].js — Single catch-all router for all endpoints on Vercel Hobby
-// Serves:
+// api/[...route].js — Catch-all router for all API routes (Hobby plan friendly)
+// Routes:
 //   POST   /api/login
 //   POST   /api/signup
-//   POST   /api/upload
+//   POST   /api/upload          (small files via function)
+//   POST   /api/annotate        (metadata after direct-to-Cloudinary upload)
 //   POST   /api/retitle
 //   DELETE /api/delete
 //   GET    /api/projects
@@ -28,7 +29,7 @@ const NAME_REGEX = /^([A-Za-zÇĞİÖŞÜçğıöşü]+)(\s+[A-Za-zÇĞİÖŞÜ�
 
 // ---- Cloudinary
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,   // not used by direct upload (client uses cloud name), but used by admin ops
   api_key:    process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
@@ -134,6 +135,7 @@ async function handleSearchStudents(req, res, url) {
   res.end(JSON.stringify({ success:true, items:(data||[]).map(r=>r.name).filter(Boolean) }));
 }
 
+// Small-file upload (kept for tiny files)
 async function handleUpload(req, res) {
   if (req.method !== "POST") return notAllowed(res);
   const auth = getAuth(req);
@@ -154,7 +156,7 @@ async function handleUpload(req, res) {
   for (const m of makersRequested) {
     if (!NAME_REGEX.test(m)) continue;
     const row = await getUserByNameRole(m, "student");
-    if (row) makersValid.push(row.name); // store DB exact case
+    if (row) makersValid.push(row.name);
   }
 
   const fileObj = files.projectFile || files.file || files.upload;
@@ -182,6 +184,47 @@ async function handleUpload(req, res) {
     studentName: uploaderName,
     title: title || null,
     makers: makersValid
+  }));
+}
+
+// Direct-upload metadata annotation (after browser → Cloudinary)
+async function handleAnnotate(req, res) {
+  if (req.method !== "POST") return notAllowed(res);
+  const auth = getAuth(req);
+  if (!auth || auth.role !== "student")
+    return res.end(JSON.stringify({ success:false, message:"Please sign in as a student." }));
+
+  const body = await parseJSON(req);
+  const public_id = String(body.public_id || "").trim();
+  const resource_type = body.resource_type === "video" ? "video" : "image";
+  const title = String(body.title || "").trim();
+  const makersCSV = String(body.makersCSV || "").trim(); // comma sep
+
+  if (!public_id) return res.end(JSON.stringify({ success:false, message:"public_id required" }));
+  const makersPipe = makersCSV
+    ? makersCSV.split(",").map(s=>s.trim()).filter(Boolean).join("|")
+    : "";
+
+  const context = [
+    `studentName=${auth.name}`,
+    title ? `title=${title}` : null,
+    makersPipe ? `makers=${makersPipe}` : null
+  ].filter(Boolean).join("|");
+
+  await cloudinary.api.update(public_id, { resource_type, context });
+  const fresh = await cloudinary.api.resource(public_id, { resource_type, context:true });
+
+  const c = fresh?.context?.custom || {};
+  const makers = c.makers ? String(c.makers).split("|").filter(Boolean) : [];
+
+  res.end(JSON.stringify({
+    success: true,
+    public_id,
+    url: fresh.secure_url,
+    resource_type,
+    studentName: c.studentName || auth.name,
+    title: c.title || title || null,
+    makers
   }));
 }
 
@@ -243,7 +286,7 @@ async function handleProjects(req, res) {
   });
 
   if (!auth) {
-    items = []; // unsigned sees nothing
+    items = [];
   } else if (auth.role === "student") {
     items = items.filter(i => i.studentName === auth.name || (i.makers || []).includes(auth.name));
   } // teacher sees all
@@ -275,7 +318,6 @@ async function handleDebugSupabase(_req, res) {
 module.exports = async (req, res) => {
   try {
     setCORS(req, res);
-
     if (req.method === "OPTIONS") {
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/json");
@@ -290,6 +332,7 @@ module.exports = async (req, res) => {
     if (p === "/api/login")            return await handleLogin(req, res);
     if (p === "/api/signup")           return await handleSignup(req, res);
     if (p === "/api/upload")           return await handleUpload(req, res);
+    if (p === "/api/annotate")         return await handleAnnotate(req, res);
     if (p === "/api/retitle")          return await handleRetitle(req, res);
     if (p === "/api/delete")           return await handleDelete(req, res);
     if (p === "/api/projects")         return await handleProjects(req, res);
