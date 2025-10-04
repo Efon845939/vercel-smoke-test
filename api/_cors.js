@@ -9,6 +9,8 @@ function pickOrigin(req) {
 }
 
 function setCORS(req, res) {
+  // inside setCORS(req, res) – TEMP for debug:
+  console.log("[CORS] origin:", req.headers.origin, "allowed:", ALLOWED);
   const allow = pickOrigin(req);
   if (allow) {
     res.setHeader("Access-Control-Allow-Origin", allow);
