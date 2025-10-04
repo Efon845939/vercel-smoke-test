@@ -1,5 +1,5 @@
-// Accepts multipart/form-data: studentName, title, makers (comma-separated), projectFile
-// Persists metadata in Cloudinary context immediately.
+// Accepts multipart/form-data: title, makers (comma-separated), projectFile
+// Uses JWT if provided for uploader name. Persists context immediately.
 
 const { setCORS } = require("./_cors");
 const { getAuth } = require("./_jwt");
@@ -20,30 +20,27 @@ module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ success: false, message: "Method not allowed" });
 
   try {
+    const auth = getAuth(req);
+
     const form = new formidable.IncomingForm({ multiples: false, keepExtensions: true });
     const { fields, files } = await new Promise((resolve, reject) => {
       form.parse(req, (err, flds, fls) => (err ? reject(err) : resolve({ fields: flds, files: fls })));
     });
 
-    const auth = getAuth(req);
-    const studentName = auth?.name ? String(auth.name) : String(fields.studentName || "Unknown");
+    const studentName = auth?.name ? String(auth.name) : String(fields.studentName || "Unknown").trim();
     const title = String(fields.title || "").trim();
-    const makersRaw = fields.makers
-      ? (Array.isArray(fields.makers) ? fields.makers.map(String).join(",") : String(fields.makers))
-      : "";
-    const makers = makersRaw.split(",").map(s => s.trim()).filter(Boolean); // ["a","b"]
+    const makers = String(fields.makers || "")
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean);
 
     const fileObj = files.projectFile || files.file || files.upload;
     const filepath =
       (fileObj && fileObj.filepath) ||
       (Array.isArray(fileObj) && fileObj[0] && fileObj[0].filepath);
-
     if (!filepath) return res.status(400).json({ success: false, message: 'No file uploaded (field "projectFile")' });
 
     const folder = process.env.CLOUDINARY_FOLDER || "steam4all";
-
-    // Save context as a STRING (most compatible with Cloudinary):
-    // studentName=<name>|title=<title>|makers=<a|b|c>
     const ctx = [
       `studentName=${studentName}`,
       title ? `title=${title}` : null,
