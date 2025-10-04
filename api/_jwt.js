@@ -1,4 +1,3 @@
-// api/_jwt.js
 const jwt = require("jsonwebtoken");
 const SECRET = process.env.AUTH_SECRET || "dev-secret-change-me";
 
