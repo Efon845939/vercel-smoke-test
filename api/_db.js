@@ -1,4 +1,3 @@
-// api/_db.js
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
 
@@ -16,16 +15,13 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
 async function getUserByNameRole(name, role) {
   const n = String(name || '').trim().toLowerCase();
   const r = role === 'teacher' ? 'teacher' : 'student';
-  // unique(lower(name), role)
   const { data, error } = await supabase
     .from('users')
     .select('*')
     .eq('role', r)
-    .ilike('name', n)  // case-insensitive; ilike exact not guaranteed, so:
-    .limit(50);
+    .limit(100);
   if (error) throw error;
-  // filter exact lower(name)
-  const row = (data || []).find(x => x.name && x.name.toLowerCase() === n);
+  const row = (data || []).find(x => (x.name || '').toLowerCase() === n);
   return row || null;
 }
 
