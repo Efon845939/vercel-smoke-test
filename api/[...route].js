@@ -1,4 +1,4 @@
-// api/[...route].js — Catch-all router for all API routes (Hobby plan friendly)
+// api/[...route].js — Catch-all router for all API routes (Vercel Hobby friendly)
 // Routes:
 //   POST   /api/login
 //   POST   /api/signup
@@ -18,30 +18,30 @@ const bcrypt = require("bcryptjs");
 const cloudinary = require("cloudinary").v2;
 const formidable = require("formidable");
 
-// ---- ENV
+// ---------- ENV ----------
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE || "";
-const FOLDER = process.env.CLOUDINARY_FOLDER || "steam4all";
 const TEACHER_ACCESS_CODE = process.env.TEACHER_ACCESS_CODE || "StEaM4AlL";
+const FOLDER = process.env.CLOUDINARY_FOLDER || "steam4all"; // used by small-file upload
 
 // Full-name rule (letters incl. Turkish; at least two words)
 const NAME_REGEX = /^([A-Za-zÇĞİÖŞÜçğıöşü]+)(\s+[A-Za-zÇĞİÖŞÜçğıöşü]+)+$/;
 
-// ---- Cloudinary
+// ---------- Cloudinary ----------
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,   // not used by direct upload (client uses cloud name), but used by admin ops
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME, // admin ops (client uses cloud name directly)
   api_key:    process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// ---- Supabase (service role)
+// ---------- Supabase (service role) ----------
 const sb = (SUPABASE_URL && SUPABASE_SERVICE_ROLE)
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
       auth: { persistSession: false, autoRefreshToken: false }
     })
   : null;
 
-// ---- utils
+// ---------- Utils ----------
 async function parseJSON(req) {
   const chunks = [];
   for await (const c of req) chunks.push(c);
@@ -82,7 +82,7 @@ function notAllowed(res) {
   res.end(JSON.stringify({ success:false, message:"Method not allowed" }));
 }
 
-// ---- endpoint handlers
+// ---------- Handlers ----------
 async function handleSignup(req, res) {
   if (req.method !== "POST") return notAllowed(res);
   const body = await parseJSON(req);
@@ -135,7 +135,7 @@ async function handleSearchStudents(req, res, url) {
   res.end(JSON.stringify({ success:true, items:(data||[]).map(r=>r.name).filter(Boolean) }));
 }
 
-// Small-file upload (kept for tiny files)
+// Small-file upload via function (kept for tiny files)
 async function handleUpload(req, res) {
   if (req.method !== "POST") return notAllowed(res);
   const auth = getAuth(req);
@@ -152,6 +152,7 @@ async function handleUpload(req, res) {
   const makersRequested = String(fields.makers || "")
     .split(",").map(s=>s.trim()).filter(Boolean);
 
+  // Validate makers against roster (must be existing students with full name)
   const makersValid = [];
   for (const m of makersRequested) {
     if (!NAME_REGEX.test(m)) continue;
@@ -187,7 +188,7 @@ async function handleUpload(req, res) {
   }));
 }
 
-// Direct-upload metadata annotation (after browser → Cloudinary)
+// Direct-upload metadata annotation (browser → Cloudinary, then this)
 async function handleAnnotate(req, res) {
   if (req.method !== "POST") return notAllowed(res);
   const auth = getAuth(req);
@@ -198,9 +199,10 @@ async function handleAnnotate(req, res) {
   const public_id = String(body.public_id || "").trim();
   const resource_type = body.resource_type === "video" ? "video" : "image";
   const title = String(body.title || "").trim();
-  const makersCSV = String(body.makersCSV || "").trim(); // comma sep
+  const makersCSV = String(body.makersCSV || "").trim(); // comma-separated
 
   if (!public_id) return res.end(JSON.stringify({ success:false, message:"public_id required" }));
+
   const makersPipe = makersCSV
     ? makersCSV.split(",").map(s=>s.trim()).filter(Boolean).join("|")
     : "";
@@ -255,22 +257,27 @@ async function handleDelete(req, res) {
   res.end(JSON.stringify({ success: result.result === "ok", result }));
 }
 
+// ---- NEW: list by context (not folder) so uploads always appear
 async function handleProjects(req, res) {
   if (req.method !== "GET") return notAllowed(res);
   const auth = getAuth(req); // may be null
 
+  // Fetch recent images & videos account-wide; include context
   const imgs = await cloudinary.api.resources({
-    type:"upload", prefix:`${FOLDER}/`, max_results:100, resource_type:"image", context:true
+    type: "upload", max_results: 100, resource_type: "image", context: true
   });
   const vids = await cloudinary.api.resources({
-    type:"upload", prefix:`${FOLDER}/`, max_results:100, resource_type:"video", context:true
+    type: "upload", max_results: 100, resource_type: "video", context: true
   });
 
-  let resources = (imgs.resources||[]).concat(vids.resources||[]);
-  resources.sort((a,b)=> new Date(b.created_at) - new Date(a.created_at));
+  let resources = (imgs.resources || []).concat(vids.resources || []);
+  resources.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
 
-  let items = resources.map(r=>{
-    const c = r.context && r.context.custom ? r.context.custom : {};
+  // Only items created via our app (must have studentName in context)
+  resources = resources.filter(r => r.context && r.context.custom && r.context.custom.studentName);
+
+  let items = resources.map(r => {
+    const c = r.context.custom;
     const makers = c.makers ? String(c.makers).split("|").filter(Boolean) : [];
     return {
       public_id: r.public_id,
@@ -285,11 +292,12 @@ async function handleProjects(req, res) {
     };
   });
 
+  // Privacy: unsigned -> none; student -> own & co-created; teacher -> all
   if (!auth) {
     items = [];
   } else if (auth.role === "student") {
     items = items.filter(i => i.studentName === auth.name || (i.makers || []).includes(auth.name));
-  } // teacher sees all
+  }
 
   res.end(JSON.stringify({ success:true, count: items.length, items }));
 }
@@ -314,10 +322,11 @@ async function handleDebugSupabase(_req, res) {
   }
 }
 
-// ---- main handler (catch-all)
+// ---------- Main handler (catch-all) ----------
 module.exports = async (req, res) => {
   try {
     setCORS(req, res);
+
     if (req.method === "OPTIONS") {
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/json");
@@ -327,12 +336,12 @@ module.exports = async (req, res) => {
     res.setHeader("Content-Type", "application/json");
 
     const url = new URL(req.url, "http://localhost");
-    const p = url.pathname; // e.g., /api/login
+    const p = url.pathname;
 
     if (p === "/api/login")            return await handleLogin(req, res);
     if (p === "/api/signup")           return await handleSignup(req, res);
-    if (p === "/api/upload")           return await handleUpload(req, res);
-    if (p === "/api/annotate")         return await handleAnnotate(req, res);
+    if (p === "/api/upload")           return await handleUpload(req, res);      // small files
+    if (p === "/api/annotate")         return await handleAnnotate(req, res);    // direct-upload metadata
     if (p === "/api/retitle")          return await handleRetitle(req, res);
     if (p === "/api/delete")           return await handleDelete(req, res);
     if (p === "/api/projects")         return await handleProjects(req, res);
